@@ -51,53 +51,101 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         try:
             landmarks = results.pose_landmarks.landmark
 
-            #get array index for specific joints
+            #get array index for joints
+            left_wrist_index = mp_pose.PoseLandmark.LEFT_WRIST.value
             left_elbow_index = mp_pose.PoseLandmark.LEFT_ELBOW.value
             left_shoulder_index = mp_pose.PoseLandmark.LEFT_SHOULDER.value
             left_hip_index = mp_pose.PoseLandmark.LEFT_HIP.value
+            left_knee_index = mp_pose.PoseLandmark.LEFT_KNEE.value
 
-            #get x and y values of the joint
+            #get x and y values of joints
             left_elbow = [landmarks[left_elbow_index].x, landmarks[left_elbow_index].y]
             left_shoulder = [landmarks[left_shoulder_index].x, landmarks[left_shoulder_index].y]
             left_hip = [landmarks[left_hip_index].x, landmarks[left_hip_index].y]
+            left_knee = [landmarks[left_knee_index].x, landmarks[left_knee_index].y]
+            left_wrist = [landmarks[left_wrist_index].x, landmarks[left_wrist_index].y]
 
-            #calc angle
-            angle = calc_angle(left_elbow, left_shoulder, left_hip)
+            #calc angles
+            shoulder_angle = calc_angle(left_elbow, left_shoulder, left_hip)
+            hip_angle = calc_angle(left_shoulder, left_hip, left_knee)
+            elbow_angle = calc_angle(left_wrist, left_elbow, left_shoulder)
 
             #give voice prompts based on feed
-            if floor(angle) >= 45 and floor(angle) <= 50 and landmarks[left_hip_index].visibility > 0.1: #right position
+            #shoulder
+            if (floor(shoulder_angle) >= 45 and floor(shoulder_angle) <= 50 and landmarks[left_hip_index].visibility > 0.1 
+                                                          and landmarks[left_shoulder_index].visibility > 0.1 
+                                                          and landmarks[left_elbow_index].visibility > 0.1): #right position
                 engine.say('hold')
                 engine.runAndWait()
-            elif floor(angle) > 50 and counter % 15 == 0 and landmarks[left_hip_index].visibility > 0.1: #angle too big
+            elif (floor(shoulder_angle) > 50 and counter % 15 == 0 and landmarks[left_hip_index].visibility > 0.1 
+                                                          and landmarks[left_shoulder_index].visibility > 0.1 
+                                                          and landmarks[left_elbow_index].visibility > 0.1): #shoulder_angle too big
                 engine.say('lean more')
                 engine.runAndWait()
-            elif floor(angle) < 45 and counter % 15 == 0 and landmarks[left_hip_index].visibility > 0.1: #angle too small
+            elif (floor(shoulder_angle) < 45 and counter % 15 == 0 and landmarks[left_hip_index].visibility > 0.1 
+                                                          and landmarks[left_shoulder_index].visibility > 0.1 
+                                                          and landmarks[left_elbow_index].visibility > 0.1): #shoulder_angle too small
                 engine.say('lean less')
+                engine.runAndWait()
+
+            #hip
+            if (floor(hip_angle) < 170 and counter % 15 == 5 and landmarks[left_hip_index].visibility > 0.1 
+                                                          and landmarks[left_shoulder_index].visibility > 0.1 
+                                                          and landmarks[left_knee_index].visibility > 0.1): #piked hip
+                engine.say('straighten hips')
+                engine.runAndWait()
+
+            #elbow
+            if (floor(elbow_angle) < 170 and counter % 15 == 10 and landmarks[left_elbow_index].visibility > 0.1 
+                                                          and landmarks[left_shoulder_index].visibility > 0.1 
+                                                          and landmarks[left_wrist_index].visibility > 0.1): #piked hip
+                engine.say('straighten arms')
                 engine.runAndWait()
         except:
             pass
 
-        #render detections
+        #render detections on body
         mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-                                    mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
-                                    mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
-                                    ) #utilize drawing utility to draw to our image. 4th and 5th prams optional to change visuals
+                                  mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=2),
+                                  mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
+                                  ) #utilize drawing utility to draw to our image. 4th and 5th prams optional to change visuals
 
         #mirror the image so it looks more natural
         image = cv.flip(image, 1)
         
-        #display angle on screen
-        display_loc = np.multiply(left_shoulder, [640, 480]).astype(int)
-        display_loc[0] = 640 - display_loc[0]
+        #display angles on screen
+        shoulder_display_location = np.multiply(left_shoulder, [640, 480]).astype(int)
+        shoulder_display_location[0] = 640 - shoulder_display_location[0]
         cv.putText(image, 
-                    str(int(angle)),
-                    tuple(display_loc), 
-                    cv.FONT_HERSHEY_SIMPLEX, 
-                    1, 
-                    (255,255,255), 
-                    2, 
-                    cv.LINE_AA
-                    ) #determine where on the screen to display
+                   str(int(shoulder_angle)),
+                   tuple(shoulder_display_location), 
+                   cv.FONT_HERSHEY_SIMPLEX, 
+                   1, 
+                   (255,255,255), 
+                   2, 
+                   cv.LINE_AA) 
+
+        hip_display_location = np.multiply(left_hip, [640, 480]).astype(int)
+        hip_display_location[0] = 640 - hip_display_location[0]
+        cv.putText(image, 
+                   str(int(hip_angle)),
+                   tuple(hip_display_location), 
+                   cv.FONT_HERSHEY_SIMPLEX, 
+                   1, 
+                   (255,255,255), 
+                   2, 
+                   cv.LINE_AA) 
+
+        elbow_display_location = np.multiply(left_elbow, [640, 480]).astype(int)
+        elbow_display_location[0] = 640 - elbow_display_location[0]
+        cv.putText(image, 
+                   str(int(elbow_angle)),
+                   tuple(elbow_display_location), 
+                   cv.FONT_HERSHEY_SIMPLEX, 
+                   1, 
+                   (255,255,255), 
+                   2, 
+                   cv.LINE_AA)
         
         cv.imshow('mediapipe feed!', image) #gives popup window on pc
 
